@@ -1,4 +1,6 @@
-# Gitignore for Bodhi Tree AI
+# Bodhi Tree AI - .gitignore
+
+old/
 
 # Rust
 target/
@@ -6,13 +8,11 @@ Cargo.lock
 **/*.rs.bk
 *.pdb
 
-# Enclave artifacts
-enclave/enclave
+# Build artifacts
 *.eif
-
-# Environment
-.env
-.env.local
+*.so
+*.dylib
+*.dll
 
 # IDE
 .vscode/
@@ -28,7 +28,44 @@ Thumbs.db
 # Logs
 *.log
 
-# Node (for future phases)
+# Environment
+.env
+.env.local
+
+# Python (for Phase 2+)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# SQLite (for Phase 2+)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Node.js (for Phase 5+)
 node_modules/
 .next/
-dist/
+out/
+.cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker
+.dockerignore
+
+# AWS
+.aws/
+credentials
+config
