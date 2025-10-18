@@ -7,7 +7,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 
 export class BodhiTreeStack extends cdk.Stack {
-
   public readonly tasksTable: dynamodb.Table;
   public readonly mcpServersTable: dynamodb.Table;
   public readonly strategiesTable: dynamodb.Table;
@@ -49,7 +48,7 @@ export class BodhiTreeStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // MCP Servers Table - store MCP configurations
+    // MCP Servers Table - store MCP configurations (Railway reads from here)
     this.mcpServersTable = new dynamodb.Table(this, 'MCPServersTable', {
       tableName: 'bodhi-mcp-servers',
       partitionKey: {
@@ -82,7 +81,7 @@ export class BodhiTreeStack extends cdk.Stack {
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-    }); 
+    });
 
     // ========================================
     // LAMBDA FUNCTIONS
@@ -99,15 +98,16 @@ export class BodhiTreeStack extends cdk.Stack {
     // Grant DynamoDB permissions
     this.tasksTable.grantReadWriteData(lambdaRole);
     this.mcpServersTable.grantReadWriteData(lambdaRole);
-    this.strategiesTable.grantReadWriteData(lambdaRole); 
-     
+    this.strategiesTable.grantReadWriteData(lambdaRole);
+
     // Environment variables for Lambda functions
     const lambdaEnv = {
       TASKS_TABLE: this.tasksTable.tableName,
       MCP_SERVERS_TABLE: this.mcpServersTable.tableName,
-      STRATEGIES_TABLE: this.strategiesTable.tableName, 
-      API_KEY: process.env.API_KEY || '12345678',
+      STRATEGIES_TABLE: this.strategiesTable.tableName,
+      API_KEY: process.env.API_KEY || 'bodhi-tree-api-key-change-me',
       NODE_ENV: 'production',
+      RAILWAY_MCP_URL: process.env.RAILWAY_MCP_URL || 'https://your-railway-app.railway.app',
     };
 
     // CloudWatch Log Group
@@ -140,17 +140,6 @@ export class BodhiTreeStack extends cdk.Stack {
       logGroup: lambdaLogGroup,
     });
 
-    const mcpProxyFunction = new lambda.Function(this, 'MCPProxyFunction', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'mcp-proxy.handler',
-      code: lambda.Code.fromAsset('lambda/functions'),
-      environment: lambdaEnv,
-      role: lambdaRole,
-      timeout: cdk.Duration.seconds(60), // Longer for MCP operations
-      memorySize: 1024,
-      logGroup: lambdaLogGroup,
-    });
-
     const strategiesFunction = new lambda.Function(this, 'StrategiesFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'strategies.handler',
@@ -179,7 +168,7 @@ export class BodhiTreeStack extends cdk.Stack {
 
     this.api = new apigateway.RestApi(this, 'BodhiTreeApi', {
       restApiName: 'Bodhi Tree API',
-      description: 'API for Bodhi Tree AI Agent',
+      description: 'API for Bodhi Tree AI Agent Framework',
       deployOptions: {
         stageName: 'prod',
         throttlingRateLimit: 100,
@@ -222,11 +211,7 @@ export class BodhiTreeStack extends cdk.Stack {
 
     // Agent Status (public - no API key)
     const agentResource = this.api.root.addResource('agent');
-    const statusResource = agentResource.addResource('status');
-    statusResource.addMethod('GET', new apigateway.LambdaIntegration(agentStatusFunction));
-    
-    const agentIdResource = statusResource.addResource('{id}');
-    agentIdResource.addMethod('GET', new apigateway.LambdaIntegration(agentStatusFunction));
+    agentResource.addMethod('GET', new apigateway.LambdaIntegration(agentStatusFunction));
 
     // Tasks endpoints (protected)
     const tasksResource = this.api.root.addResource('tasks');
@@ -267,17 +252,6 @@ export class BodhiTreeStack extends cdk.Stack {
       apiKeyRequired: true,
     });
 
-    // MCP Proxy endpoints (protected)
-    const toolsResource = mcpResource.addResource('tools');
-    toolsResource.addMethod('GET', new apigateway.LambdaIntegration(mcpProxyFunction), {
-      apiKeyRequired: true,
-    });
-    
-    const callToolResource = toolsResource.addResource('call');
-    callToolResource.addMethod('POST', new apigateway.LambdaIntegration(mcpProxyFunction), {
-      apiKeyRequired: true,
-    });
-
     // Strategies endpoints (protected)
     const strategiesResource = this.api.root.addResource('strategies');
     strategiesResource.addMethod('GET', new apigateway.LambdaIntegration(strategiesFunction), {
@@ -297,7 +271,7 @@ export class BodhiTreeStack extends cdk.Stack {
     strategyResource.addMethod('DELETE', new apigateway.LambdaIntegration(strategiesFunction), {
       apiKeyRequired: true,
     });
- 
+
     // ========================================
     // OUTPUTS
     // ========================================
@@ -323,5 +297,6 @@ export class BodhiTreeStack extends cdk.Stack {
       value: this.mcpServersTable.tableName,
       description: 'MCP Servers DynamoDB Table Name',
     });
+ 
   }
 }
