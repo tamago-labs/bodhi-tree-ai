@@ -31,8 +31,7 @@ export class BodhiTreeStack extends cdk.Stack {
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
     });
 
     this.tasksTable.addGlobalSecondaryIndex({
@@ -48,7 +47,7 @@ export class BodhiTreeStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // MCP Servers Table - store MCP configurations (Railway reads from here)
+    // MCP Servers Table - store MCP configurations
     this.mcpServersTable = new dynamodb.Table(this, 'MCPServersTable', {
       tableName: 'bodhi-mcp-servers',
       partitionKey: {
@@ -87,12 +86,38 @@ export class BodhiTreeStack extends cdk.Stack {
     // LAMBDA FUNCTIONS
     // ========================================
 
-    // Lambda execution role with DynamoDB permissions
+    // Lambda execution role with access to all tables
     const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
+      inlinePolicies: {
+        DynamoDBAccess: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'dynamodb:PutItem',
+                'dynamodb:GetItem',
+                'dynamodb:Query',
+                'dynamodb:Scan',
+                'dynamodb:UpdateItem',
+                'dynamodb:DeleteItem',
+                'dynamodb:BatchWriteItem',
+                'dynamodb:BatchGetItem',
+              ],
+              resources: [
+                this.tasksTable.tableArn,
+                `${this.tasksTable.tableArn}/index/*`,
+                this.mcpServersTable.tableArn,
+                `${this.mcpServersTable.tableArn}/index/*`,
+                this.strategiesTable.tableArn
+              ],
+            }),
+          ],
+        }),
+      },
     });
 
     // Grant DynamoDB permissions
@@ -105,7 +130,7 @@ export class BodhiTreeStack extends cdk.Stack {
       TASKS_TABLE: this.tasksTable.tableName,
       MCP_SERVERS_TABLE: this.mcpServersTable.tableName,
       STRATEGIES_TABLE: this.strategiesTable.tableName,
-      API_KEY: process.env.API_KEY || 'bodhi-tree-api-key-change-me',
+      API_KEY: process.env.API_KEY || '123456',
       NODE_ENV: 'production',
       RAILWAY_MCP_URL: process.env.RAILWAY_MCP_URL || 'https://your-railway-app.railway.app',
     };
