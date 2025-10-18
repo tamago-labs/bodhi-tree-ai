@@ -1,0 +1,2 @@
+@kaiachain/=lib/kaia-contracts/
+forge-std/=lib/forge-std/src/
