@@ -91,8 +91,6 @@ export function useMCPServers() {
 
   useEffect(() => {
     fetchServers();
-    const interval = setInterval(fetchServers, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   return {

@@ -48,12 +48,12 @@ export function BaseModal({
           )}
         >
           {/* Always include DialogTitle for accessibility - hide it visually if no title */}
-          <Dialog.Title className={title ? "text-lg font-semibold leading-none tracking-tight" : "sr-only"}>
+          <Dialog.Title className={title ? "sr-only" : "sr-only"}>
             {title || "Dialog"}
           </Dialog.Title>
           
           {description && (
-            <Dialog.Description className="text-sm text-gray-600">
+            <Dialog.Description className="sr-only">
               {description}
             </Dialog.Description>
           )}
@@ -65,6 +65,11 @@ export function BaseModal({
                   <h2 className="text-lg font-semibold leading-none tracking-tight">
                     {title}
                   </h2>
+                )}
+                {description && (
+                  <p className="text-sm text-gray-600">
+                    {description}
+                  </p>
                 )}
               </div>
               {showCloseButton && (

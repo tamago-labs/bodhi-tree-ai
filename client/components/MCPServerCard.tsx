@@ -4,7 +4,7 @@ import { MCPServer } from '@/types';
 interface MCPServerCardProps {
   server: MCPServer;
   onToggleAutoStart: (server: MCPServer) => void;
-  onDelete: (id: string) => void;
+  onDelete: (server: MCPServer) => void;
 }
 
 export function MCPServerCard({ server, onToggleAutoStart, onDelete }: MCPServerCardProps) {
@@ -94,7 +94,7 @@ export function MCPServerCard({ server, onToggleAutoStart, onDelete }: MCPServer
             {server.autoStart ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </button>
           <button
-            onClick={() => onDelete(server.id)}
+            onClick={() => onDelete(server)}
             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Delete server"
           >
