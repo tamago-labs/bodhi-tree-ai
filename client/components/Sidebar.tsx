@@ -30,6 +30,7 @@ const navigation = [
     children: [
       { name: 'Overview', href: '/agent' },
       { name: 'Configuration', href: '/agent/config' },
+       { name: 'MCP', href: '/agent/mcp' },
     ],
   },
   {
