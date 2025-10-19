@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from './BaseModal';
-import { AlertTriangle, Trash2, Play, CheckCircle } from 'lucide-react';
+import { AlertTriangle, Trash2, Play, CheckCircle, Square } from 'lucide-react';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -73,20 +73,19 @@ export function ConfirmDialog({
     <BaseModal
       open={open}
       onOpenChange={onOpenChange}
+      title={title}
       size="sm"
       preventClose={loading}
     >
-      <ModalHeader>
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-full ${config.bgClass}`}>
-            {displayIcon}
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-600 mt-1">{description}</p>
-          </div>
+      <div className="flex flex-col items-center text-center py-4">
+        <div className={`p-3 rounded-full ${config.bgClass} mb-4`}>
+          {displayIcon}
         </div>
-      </ModalHeader>
+        
+        <div className="space-y-2 mb-6">
+          <p className="text-gray-700">{description}</p>
+        </div>
+      </div>
 
       <ModalFooter>
         <button
@@ -167,6 +166,36 @@ export function DeleteStrategyDialog({
       confirmText="Delete Strategy"
       onConfirm={onConfirm}
       variant="danger"
+      loading={loading}
+    />
+  );
+}
+
+interface StopStrategyDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  strategyName: string;
+  onConfirm: () => void | Promise<void>;
+  loading?: boolean;
+}
+
+export function StopStrategyDialog({
+  open,
+  onOpenChange,
+  strategyName,
+  onConfirm,
+  loading = false
+}: StopStrategyDialogProps) {
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Stop Strategy"
+      description={`Are you sure you want to stop "${strategyName}"? The agent will cease all trading activities.`}
+      confirmText="Stop Strategy"
+      onConfirm={onConfirm}
+      variant="warning"
+      icon={<Square className="w-5 h-5 text-red-600" />}
       loading={loading}
     />
   );

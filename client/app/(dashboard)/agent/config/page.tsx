@@ -11,10 +11,11 @@ import {
   Shield,
   Zap,
   AlertCircle,
-  Loader2
+  Loader2,
+  Square
 } from 'lucide-react';
 import { StrategyTemplateModal } from '@/components/ui/StrategyTemplateModal';
-import { ActivateStrategyDialog, DeleteStrategyDialog } from '@/components/ui/ConfirmDialog';
+import { ActivateStrategyDialog, DeleteStrategyDialog, StopStrategyDialog } from '@/components/ui/ConfirmDialog';
 
 interface Strategy {
   id: string;
@@ -47,6 +48,7 @@ export default function AgentConfigPage() {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [activateDialogOpen, setActivateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [stopDialogOpen, setStopDialogOpen] = useState(false);
   const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -86,6 +88,13 @@ export default function AgentConfigPage() {
   const handleDeleteStrategy = (strategy: Strategy) => {
     setSelectedStrategy(strategy);
     setDeleteDialogOpen(true);
+  };
+
+  const handleStopStrategy = () => {
+    if (activeStrategy) {
+      setSelectedStrategy(activeStrategy);
+      setStopDialogOpen(true);
+    }
   };
 
   async function activateStrategy(id: string) {
@@ -130,6 +139,30 @@ export default function AgentConfigPage() {
       setSelectedStrategy(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete strategy');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function stopStrategy(id: string) {
+    setActionLoading(true);
+    try {
+      const response = await fetch(`${apiUrl}/strategies/${id}`, {
+        method: 'PUT',
+        headers: {
+          'X-Api-Key': apiKey!,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isActive: false })
+      });
+
+      if (!response.ok) throw new Error('Failed to stop strategy');
+
+      await fetchStrategies();
+      setStopDialogOpen(false);
+      setSelectedStrategy(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop strategy');
     } finally {
       setActionLoading(false);
     }
@@ -219,10 +252,10 @@ export default function AgentConfigPage() {
         <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
+              {/* <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
                 <h2 className="text-xl font-semibold text-green-900">Active Strategy</h2>
-              </div>
+              </div> */}
               <h3 className="text-2xl font-bold text-green-900 mb-2">{activeStrategy.name}</h3>
               <p className="text-green-700 mb-4">{activeStrategy.description}</p>
               
@@ -247,6 +280,15 @@ export default function AgentConfigPage() {
                   {activeStrategy.type.toUpperCase()}
                 </span>
               </div>
+            </div>
+            <div className="ml-4">
+              <button
+                onClick={handleStopStrategy}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <Square className="w-4 h-4" />
+                Stop Strategy
+              </button>
             </div>
           </div>
         </div>
@@ -350,6 +392,14 @@ export default function AgentConfigPage() {
             onOpenChange={setDeleteDialogOpen}
             strategyName={selectedStrategy.name}
             onConfirm={() => deleteStrategy(selectedStrategy.id)}
+            loading={actionLoading}
+          />
+
+          <StopStrategyDialog
+            open={stopDialogOpen}
+            onOpenChange={setStopDialogOpen}
+            strategyName={selectedStrategy.name}
+            onConfirm={() => stopStrategy(selectedStrategy.id)}
             loading={actionLoading}
           />
         </>

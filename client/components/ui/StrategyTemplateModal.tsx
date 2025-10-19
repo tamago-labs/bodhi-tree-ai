@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BaseModal, ModalHeader, ModalBody, ModalFooter } from './BaseModal';
+import { BaseModal, ModalBody, ModalFooter } from './BaseModal';
 import { Shield, TrendingUp, Zap, CheckCircle, Plus } from 'lucide-react';
 
 interface StrategyTemplate {
@@ -90,7 +90,7 @@ export function StrategyTemplateModal({
     >
       <ModalBody>
         {!selectedTemplate ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {templates.map((template, index) => (
               <div
                 key={template.type}
@@ -120,9 +120,8 @@ export function StrategyTemplateModal({
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs text-gray-600">Est. APY:</span>
                   <span className="font-semibold text-gray-900">{template.estimatedAPY}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+                </div> 
+                {/* <div className="flex items-center gap-2 text-xs text-gray-500">
                   {index === 0 ? (
                     <>
                       <Plus className="w-3 h-3" />
@@ -134,7 +133,7 @@ export function StrategyTemplateModal({
                       <span>Coming soon</span>
                     </>
                   )}
-                </div>
+                </div> */}
               </div>
             ))}
           </div>
