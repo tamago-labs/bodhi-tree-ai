@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { StrategyTemplateModal } from '@/components/ui/StrategyTemplateModal';
+import { ActivateStrategyDialog, DeleteStrategyDialog } from '@/components/ui/ConfirmDialog';
 
 interface Strategy {
   id: string;
@@ -40,7 +42,13 @@ export default function AgentConfigPage() {
   const [templates, setTemplates] = useState<StrategyTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showTemplates, setShowTemplates] = useState(false);
+  
+  // Modal states
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
   const apiKey = process.env.NEXT_PUBLIC_AWS_API_KEY;
@@ -70,11 +78,18 @@ export default function AgentConfigPage() {
     }
   }
 
-  async function activateStrategy(id: string) {
-    if (!confirm('Switch to this strategy? The current strategy will be deactivated.')) {
-      return;
-    }
+  const handleActivateStrategy = (strategy: Strategy) => {
+    setSelectedStrategy(strategy);
+    setActivateDialogOpen(true);
+  };
 
+  const handleDeleteStrategy = (strategy: Strategy) => {
+    setSelectedStrategy(strategy);
+    setDeleteDialogOpen(true);
+  };
+
+  async function activateStrategy(id: string) {
+    setActionLoading(true);
     try {
       const response = await fetch(`${apiUrl}/strategies/${id}`, {
         method: 'PUT',
@@ -88,16 +103,17 @@ export default function AgentConfigPage() {
       if (!response.ok) throw new Error('Failed to activate strategy');
 
       await fetchStrategies();
+      setActivateDialogOpen(false);
+      setSelectedStrategy(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to activate strategy');
+      setError(err instanceof Error ? err.message : 'Failed to activate strategy');
+    } finally {
+      setActionLoading(false);
     }
   }
 
   async function deleteStrategy(id: string) {
-    if (!confirm('Delete this strategy? This cannot be undone.')) {
-      return;
-    }
-
+    setActionLoading(true);
     try {
       const response = await fetch(`${apiUrl}/strategies/${id}`, {
         method: 'DELETE',
@@ -110,15 +126,16 @@ export default function AgentConfigPage() {
       }
 
       await fetchStrategies();
+      setDeleteDialogOpen(false);
+      setSelectedStrategy(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete strategy');
+      setError(err instanceof Error ? err.message : 'Failed to delete strategy');
+    } finally {
+      setActionLoading(false);
     }
   }
 
-  async function createFromTemplate(template: StrategyTemplate) {
-    const name = prompt(`Name for your ${template.name}:`, `My ${template.name}`);
-    if (!name) return;
-
+  async function createFromTemplate(template: StrategyTemplate, customName: string) {
     try {
       const response = await fetch(`${apiUrl}/strategies`, {
         method: 'POST',
@@ -127,7 +144,7 @@ export default function AgentConfigPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          name,
+          name: customName,
           type: template.type,
           description: template.description,
           config: template.config,
@@ -138,9 +155,9 @@ export default function AgentConfigPage() {
       if (!response.ok) throw new Error('Failed to create strategy');
 
       await fetchStrategies();
-      setShowTemplates(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to create strategy');
+      setError(err instanceof Error ? err.message : 'Failed to create strategy');
+      throw err; // Re-throw to let the modal handle it
     }
   }
 
@@ -188,7 +205,7 @@ export default function AgentConfigPage() {
           <p className="text-gray-600 mt-1">Manage and switch between trading strategies</p>
         </div>
         <button
-          onClick={() => setShowTemplates(!showTemplates)}
+          onClick={() => setTemplateModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -196,36 +213,6 @@ export default function AgentConfigPage() {
         </button>
       </div>
 
-      {/* Strategy Templates */}
-      {showTemplates && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Choose a Template</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {templates.map((template) => (
-              <div
-                key={template.type}
-                className="border-2 border-gray-200 bg-gray-50 rounded-xl p-6 hover:shadow-md hover:border-orange-300 transition-all cursor-pointer"
-                onClick={() => createFromTemplate(template)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    {getRiskIcon(template.riskLevel)}
-                    <h3 className="font-semibold text-gray-900">{template.name}</h3>
-                  </div>
-                  <span className="px-2 py-1 rounded text-xs font-medium bg-gray-200 text-gray-700">
-                    {template.riskLevel.toUpperCase()}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-4">{template.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Est. APY:</span>
-                  <span className="font-semibold text-gray-900">{template.estimatedAPY}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Active Strategy */}
       {activeStrategy ? (
@@ -305,13 +292,13 @@ export default function AgentConfigPage() {
 
                   <div className="flex items-center gap-2 ml-4">
                     <button
-                      onClick={() => activateStrategy(strategy.id)}
+                      onClick={() => handleActivateStrategy(strategy)}
                       className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
                     >
                       Activate
                     </button>
                     <button
-                      onClick={() => deleteStrategy(strategy.id)}
+                      onClick={() => handleDeleteStrategy(strategy)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -331,12 +318,41 @@ export default function AgentConfigPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No Strategies Yet</h3>
           <p className="text-gray-600 mb-6">Create your first strategy from a template</p>
           <button
-            onClick={() => setShowTemplates(true)}
+            onClick={() => setTemplateModalOpen(true)}
             className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
           >
             Browse Templates
           </button>
         </div>
+      )}
+
+      {/* Modals */}
+      <StrategyTemplateModal
+        open={templateModalOpen}
+        onOpenChange={setTemplateModalOpen}
+        templates={templates}
+        onSelectTemplate={createFromTemplate}
+        loading={actionLoading}
+      />
+
+      {selectedStrategy && (
+        <>
+          <ActivateStrategyDialog
+            open={activateDialogOpen}
+            onOpenChange={setActivateDialogOpen}
+            strategyName={selectedStrategy.name}
+            onConfirm={() => activateStrategy(selectedStrategy.id)}
+            loading={actionLoading}
+          />
+
+          <DeleteStrategyDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            strategyName={selectedStrategy.name}
+            onConfirm={() => deleteStrategy(selectedStrategy.id)}
+            loading={actionLoading}
+          />
+        </>
       )}
     </div>
   );

@@ -1,114 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Server, Plus, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
-import { MCPServerCard } from './components/MCPServerCard';
-import { AddServerForm } from './components/AddServerForm';
-
-interface MCPServer {
-  id: string;
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-  status: string;
-  autoStart: boolean;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { MCPServerCard } from '@/components/MCPServerCard';
+import { AddServerForm } from '@/components/AddServerForm';
+import { useMCPServers } from '@/hooks/useMCPServers';
 
 export default function MCPServersPage() {
-  const [servers, setServers] = useState<MCPServer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  
-  const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
-  const apiKey = process.env.NEXT_PUBLIC_AWS_API_KEY;
+  const { servers, loading, error, fetchServers, createServer, deleteServer, toggleAutoStart } = useMCPServers();
 
-  useEffect(() => {
-    fetchServers();
-    const interval = setInterval(fetchServers, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function fetchServers() {
-    try {
-      setLoading(true);
-      const response = await fetch(`${apiUrl}/mcp/servers`, {
-        headers: { 'X-Api-Key': apiKey! }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch MCP servers');
-
-      const data = await response.json();
-      setServers(data.data || []);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createServer(formData: any) {
-    try {
-      const response = await fetch(`${apiUrl}/mcp/servers`, {
-        method: 'POST',
-        headers: {
-          'X-Api-Key': apiKey!,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) throw new Error('Failed to create MCP server');
-
-      await fetchServers();
+  const handleCreateServer = async (formData: any) => {
+    const result = await createServer(formData);
+    if (result.success) {
       setShowAddForm(false);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to create server');
+    } else {
+      alert(result.error);
     }
-  }
+  };
 
-  async function deleteServer(id: string) {
+  const handleDeleteServer = async (id: string) => {
     if (!confirm('Delete this MCP server? This cannot be undone.')) {
       return;
     }
-
-    try {
-      const response = await fetch(`${apiUrl}/mcp/servers/${id}`, {
-        method: 'DELETE',
-        headers: { 'X-Api-Key': apiKey! }
-      });
-
-      if (!response.ok) throw new Error('Failed to delete MCP server');
-
-      await fetchServers();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete server');
+    const result = await deleteServer(id);
+    if (!result.success) {
+      alert(result.error);
     }
-  }
+  };
 
-  async function toggleAutoStart(server: MCPServer) {
-    try {
-      const response = await fetch(`${apiUrl}/mcp/servers/${server.id}`, {
-        method: 'PUT',
-        headers: {
-          'X-Api-Key': apiKey!,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ autoStart: !server.autoStart })
-      });
-
-      if (!response.ok) throw new Error('Failed to update MCP server');
-
-      await fetchServers();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update server');
+  const handleToggleAutoStart = async (server: any) => {
+    const result = await toggleAutoStart(server);
+    if (!result.success) {
+      alert(result.error);
     }
-  }
+  };
 
   if (loading && servers.length === 0) {
     return (
@@ -157,7 +83,7 @@ export default function MCPServersPage() {
       {/* Add Server Form */}
       {showAddForm && (
         <AddServerForm
-          onSubmit={createServer}
+          onSubmit={handleCreateServer}
           onCancel={() => setShowAddForm(false)}
         />
       )}
@@ -195,8 +121,8 @@ export default function MCPServersPage() {
             <MCPServerCard
               key={server.id}
               server={server}
-              onToggleAutoStart={toggleAutoStart}
-              onDelete={deleteServer}
+              onToggleAutoStart={handleToggleAutoStart}
+              onDelete={handleDeleteServer}
             />
           ))}
         </div>

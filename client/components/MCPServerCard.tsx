@@ -1,17 +1,5 @@
 import { Play, Pause, Trash2, CheckCircle, Circle, AlertCircle, Loader2, Code } from 'lucide-react';
-
-interface MCPServer {
-  id: string;
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-  status: string;
-  autoStart: boolean;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { MCPServer } from '@/types';
 
 interface MCPServerCardProps {
   server: MCPServer;

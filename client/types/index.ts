@@ -89,3 +89,16 @@ export interface ProtocolAllocation {
   percentage: number;
   apy: number;
 }
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  status: string;
+  autoStart: boolean;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}

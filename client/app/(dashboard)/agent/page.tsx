@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { 
   Activity,
   TrendingUp,
@@ -11,57 +10,10 @@ import {
   Target,
   AlertCircle
 } from 'lucide-react';
-
-interface AgentData {
-  id: string;
-  name: string;
-  status: string;
-  version: string;
-  strategy: {
-    id?: string;
-    name: string;
-    type: string;
-    description: string;
-    config: any;
-    isActive?: boolean;
-  };
-  performance: {
-    uptime: number;
-    lastActivity: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+import { useAgentStatus } from '@/hooks/useAgentStatus';
 
 export default function AgentOverviewPage() {
-  const [agent, setAgent] = useState<AgentData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchAgentStatus();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchAgentStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function fetchAgentStatus() {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_AWS_API_URL}/agent`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch agent status');
-      }
-
-      const data = await response.json();
-      setAgent(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { agent, loading, error } = useAgentStatus();
 
   if (loading) {
     return (
