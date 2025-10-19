@@ -1,20 +1,23 @@
 
+const { DynamoDBClient, ScanCommand } = require('@aws-sdk/client-dynamodb');
+const { unmarshall } = require('@aws-sdk/util-dynamodb');
+
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'ap-southeast-1' });
+
+const STRATEGIES_TABLE = process.env.STRATEGIES_TABLE;
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,OPTIONS',
     'Content-Type': 'application/json',
 };
 
-// Helper function to format response
 const response = (statusCode, body) => ({
     statusCode,
     headers: corsHeaders,
     body: JSON.stringify(body),
 });
-
-// Helper function to get current timestamp
-const getCurrentTimestamp = () => new Date().toISOString();
 
 exports.handler = async (event) => {
     console.log('Event:', JSON.stringify(event, null, 2));
@@ -24,110 +27,111 @@ exports.handler = async (event) => {
         return response(200, { message: 'OK' });
     }
 
-    const { httpMethod, pathParameters } = event;
-
     try {
-        // GET /agent/status/{id} - Get agent status for specific agent ID
-        if (httpMethod === 'GET' && pathParameters?.id) {
-            const agentId = pathParameters.id;
-            
-            // Return agent status (single agent per system)
-            const agent = {
-                id: agentId,
-                name: 'Bodhi Tree Agent',
-                status: 'online',
-                strategy: process.env.AGENT_STRATEGY || 'balanced',
-                version: '1.0.0',
-                config: {
-                    riskLevel: process.env.RISK_LEVEL || 'medium',
-                    maxLeverage: parseFloat(process.env.MAX_LEVERAGE || '3.0'),
-                    protocols: (process.env.PROTOCOLS || 'Aave,Compound,Uniswap,KommuneFi').split(','),
-                    strategyParams: getStrategyParams(process.env.AGENT_STRATEGY || 'balanced'),
-                },
-                performance: {
-                    uptime: process.uptime ? process.uptime() : 0,
-                    lastActivity: getCurrentTimestamp(),
-                    lastSeen: getCurrentTimestamp(),
-                },
-                createdAt: '2025-01-01T00:00:00Z',
-                updatedAt: getCurrentTimestamp(),
-            };
-            
-            return response(200, {
-                success: true,
-                data: agent
-            });
-        }
+        // Get active strategy from database
+        const activeStrategy = await getActiveStrategy();
 
-        // GET /agent/status - Get default agent status
-        if (httpMethod === 'GET' && !pathParameters?.id) {
-            const defaultAgent = {
-                id: 'agent_bodhi_tree_main',
-                name: 'Bodhi Tree Agent',
-                status: 'running',
-                strategy: process.env.AGENT_STRATEGY || 'balanced',
-                version: '1.0.0',
-                config: {
-                    riskLevel: process.env.RISK_LEVEL || 'medium',
-                    maxLeverage: parseFloat(process.env.MAX_LEVERAGE || '3.0'),
-                    protocols: (process.env.PROTOCOLS || 'Aave,Compound,Uniswap,KommuneFi').split(','),
-                    strategyParams: getStrategyParams(process.env.AGENT_STRATEGY || 'balanced'),
-                },
-                performance: {
-                    uptime: process.uptime ? process.uptime() : 0,
-                    lastActivity: getCurrentTimestamp(),
-                },
-                createdAt: '2025-01-01T00:00:00Z',
-                updatedAt: getCurrentTimestamp(),
-            };
-            
-            return response(200, {
-                success: true,
-                data: defaultAgent
-            });
-        }
+        // Static agent configuration
+        const agent = {
+            id: 'agent_bodhi_tree_main',
+            name: 'Bodhi Tree Agent',
+            status: 'running',
+            version: '1.0.0',
+            strategy: activeStrategy ? {
+                id: activeStrategy.id,
+                name: activeStrategy.name,
+                type: activeStrategy.type,
+                description: activeStrategy.description,
+                config: activeStrategy.config,
+                isActive: true
+            } : {
+                // Fallback to default if no active strategy
+                type: 'balanced',
+                name: 'Balanced Strategy',
+                description: 'Default balanced strategy',
+                config: getDefaultStrategyConfig('balanced')
+            },
+            performance: {
+                uptime: process.uptime ? process.uptime() : 0,
+                lastActivity: new Date().toISOString(),
+            },
+            createdAt: '2025-01-01T00:00:00Z',
+            updatedAt: new Date().toISOString(),
+        };
 
-        // Method not allowed
-        return response(405, {
-            success: false,
-            error: 'Method not allowed'
-        });
+        return response(200, agent);
 
     } catch (error) {
-        console.error('Unexpected error:', error);
+        console.error('Error:', error);
         return response(500, {
-            success: false,
-            error: 'Internal server error'
+            error: 'Failed to get agent status',
+            message: error.message
         });
     }
 };
 
-function getStrategyParams(strategy) {
-    switch (strategy) {
+async function getActiveStrategy() {
+    try {
+        // Scan for active strategy (there should only be one)
+        const command = new ScanCommand({
+            TableName: STRATEGIES_TABLE,
+            FilterExpression: 'isActive = :isActive',
+            ExpressionAttributeValues: {
+                ':isActive': { BOOL: true }
+            }
+        });
+
+        const result = await dynamoClient.send(command);
+        
+        if (result.Items && result.Items.length > 0) {
+            const strategy = unmarshall(result.Items[0]);
+            console.log('Active strategy:', strategy);
+            return strategy;
+        }
+
+        console.log('No active strategy found');
+        return null;
+
+    } catch (error) {
+        console.error('Error getting active strategy:', error);
+        return null;
+    }
+}
+
+function getDefaultStrategyConfig(type) {
+    switch (type) {
         case 'conservative':
             return {
-                stakingAllocation: 60,
-                lendingAllocation: 40,
-                targetAPY: 6.5,
-                description: 'Low risk with KAIA staking and Avalon Finance lending',
+                stakingProtocol: 'Lair Finance',
+                lendingProtocol: 'KiloLend',
+                baseAsset: 'KAIA',
+                stakedAsset: 'stKAIA',
+                loopEnabled: true,
+                loopSteps: 2,
+                targetAPY: 8,
             };
 
         case 'balanced':
             return {
-                dexAllocation: 60,
-                lendingAllocation: 40,
-                targetAPY: 15,
+                stakingProtocol: 'Lair Finance',
+                lendingProtocol: 'KiloLend',
+                dexProtocol: 'KLEX',
+                loopEnabled: true,
+                loopSteps: 3,
+                lpFarmingEnabled: true,
                 rebalanceThreshold: 5,
-                description: 'Moderate risk with DEX yield farming and lending protocols',
+                targetAPY: 18,
             };
 
         case 'aggressive':
             return {
-                mevEnabled: true,
-                flashloanEnabled: true,
+                leverageEnabled: true,
+                leverageMultiplier: 3,
+                autoCompoundEnabled: true,
+                aiTradingEnabled: true,
+                modelType: 'momentum',
                 targetAPY: 35,
                 minProfitThreshold: 0.5,
-                description: 'High risk with MEV strategies and flashloan arbitrage',
             };
 
         default:

@@ -1,4 +1,4 @@
-const { DynamoDBClient, GetItemCommand, ScanCommand, PutItemCommand, UpdateItemCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, ScanCommand, QueryCommand, GetItemCommand, PutItemCommand, UpdateItemCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'ap-southeast-1' });
@@ -13,31 +13,26 @@ const corsHeaders = {
     'Content-Type': 'application/json',
 };
 
-// Helper function to format response
 const response = (statusCode, body) => ({
     statusCode,
     headers: corsHeaders,
     body: JSON.stringify(body),
 });
 
-// Helper function to generate ID
 const generateId = () => `strategy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-// Helper function to get current timestamp
 const getCurrentTimestamp = () => new Date().toISOString();
 
 exports.handler = async (event) => {
     console.log('Event:', JSON.stringify(event, null, 2));
 
-    // Handle preflight OPTIONS requests
     if (event.httpMethod === 'OPTIONS') {
         return response(200, { message: 'OK' });
     }
 
-    const { httpMethod, pathParameters, headers } = event;
+    const { httpMethod, pathParameters, headers, queryStringParameters } = event;
 
     try {
-        // GET /strategies - List strategies
+        // GET /strategies - List all strategies
         if (httpMethod === 'GET' && !pathParameters?.id) {
             try {
                 const command = new ScanCommand({
@@ -47,9 +42,15 @@ exports.handler = async (event) => {
                 const result = await dynamoClient.send(command);
                 const items = result.Items ? result.Items.map(item => unmarshall(item)) : [];
                 
+                // Separate active and inactive
+                const active = items.find(item => item.isActive === true);
+                const inactive = items.filter(item => item.isActive !== true);
+
                 return response(200, {
                     success: true,
-                    data: items,
+                    active: active || null,
+                    inactive: inactive,
+                    templates: getStrategyTemplates(),
                     count: items.length
                 });
             } catch (error) {
@@ -96,7 +97,6 @@ exports.handler = async (event) => {
 
         // POST /strategies - Create new strategy
         if (httpMethod === 'POST') {
-            // Validate API key
             const apiKey = headers['X-Api-Key'] || headers['x-api-key'];
             if (!apiKey || apiKey !== API_KEY) {
                 return response(401, {
@@ -109,13 +109,18 @@ exports.handler = async (event) => {
                 const body = JSON.parse(event.body || '{}');
                 const timestamp = getCurrentTimestamp();
                 
+                // If this strategy is being set as active, deactivate others first
+                if (body.isActive === true) {
+                    await deactivateAllStrategies();
+                }
+                
                 const strategy = {
                     id: generateId(),
                     name: body.name,
-                    type: body.type, // conservative, balanced, aggressive
+                    type: body.type, // conservative, balanced, aggressive, custom
                     description: body.description || '',
-                    config: body.config || {},
-                    isActive: body.isActive !== undefined ? body.isActive : true,
+                    config: body.config || getDefaultStrategyConfig(body.type),
+                    isActive: body.isActive || false,
                     createdAt: timestamp,
                     updatedAt: timestamp,
                 };
@@ -143,7 +148,6 @@ exports.handler = async (event) => {
 
         // PUT /strategies/{id} - Update strategy
         if (httpMethod === 'PUT' && pathParameters?.id) {
-            // Validate API key
             const apiKey = headers['X-Api-Key'] || headers['x-api-key'];
             if (!apiKey || apiKey !== API_KEY) {
                 return response(401, {
@@ -158,7 +162,11 @@ exports.handler = async (event) => {
                 const body = JSON.parse(event.body || '{}');
                 const timestamp = getCurrentTimestamp();
                 
-                // Build update expression
+                // If setting this strategy as active, deactivate others first
+                if (body.isActive === true) {
+                    await deactivateAllStrategies();
+                }
+                
                 const updateExpressions = [];
                 const expressionAttributeNames = {};
                 const expressionAttributeValues = {};
@@ -193,12 +201,11 @@ exports.handler = async (event) => {
                     expressionAttributeValues[':isActive'] = { BOOL: body.isActive };
                 }
 
-                // Always update updatedAt
                 updateExpressions.push('#updatedAt = :updatedAt');
                 expressionAttributeNames['#updatedAt'] = 'updatedAt';
                 expressionAttributeValues[':updatedAt'] = { S: timestamp };
 
-                if (updateExpressions.length === 1) { // Only updatedAt
+                if (updateExpressions.length === 1) {
                     return response(400, {
                         success: false,
                         error: 'No valid fields to update'
@@ -233,7 +240,6 @@ exports.handler = async (event) => {
 
         // DELETE /strategies/{id} - Delete strategy
         if (httpMethod === 'DELETE' && pathParameters?.id) {
-            // Validate API key
             const apiKey = headers['X-Api-Key'] || headers['x-api-key'];
             if (!apiKey || apiKey !== API_KEY) {
                 return response(401, {
@@ -245,6 +251,24 @@ exports.handler = async (event) => {
             const strategyId = pathParameters.id;
             
             try {
+                // Check if it's the active strategy
+                const getCommand = new GetItemCommand({
+                    TableName: STRATEGIES_TABLE,
+                    Key: marshall({ id: strategyId })
+                });
+
+                const getResult = await dynamoClient.send(getCommand);
+                
+                if (getResult.Item) {
+                    const strategy = unmarshall(getResult.Item);
+                    if (strategy.isActive === true) {
+                        return response(400, {
+                            success: false,
+                            error: 'Cannot delete active strategy. Please activate another strategy first.'
+                        });
+                    }
+                }
+
                 const command = new DeleteItemCommand({
                     TableName: STRATEGIES_TABLE,
                     Key: marshall({ id: strategyId })
@@ -265,7 +289,6 @@ exports.handler = async (event) => {
             }
         }
 
-        // Method not allowed
         return response(405, {
             success: false,
             error: 'Method not allowed'
@@ -279,3 +302,101 @@ exports.handler = async (event) => {
         });
     }
 };
+
+// Helper: Deactivate all strategies
+async function deactivateAllStrategies() {
+    try {
+        const scanCommand = new ScanCommand({
+            TableName: STRATEGIES_TABLE,
+            FilterExpression: 'isActive = :isActive',
+            ExpressionAttributeValues: {
+                ':isActive': { BOOL: true }
+            }
+        });
+
+        const scanResult = await dynamoClient.send(scanCommand);
+        
+        if (scanResult.Items && scanResult.Items.length > 0) {
+            for (const item of scanResult.Items) {
+                const strategy = unmarshall(item);
+                
+                const updateCommand = new UpdateItemCommand({
+                    TableName: STRATEGIES_TABLE,
+                    Key: marshall({ id: strategy.id }),
+                    UpdateExpression: 'SET isActive = :isActive, updatedAt = :updatedAt',
+                    ExpressionAttributeValues: {
+                        ':isActive': { BOOL: false },
+                        ':updatedAt': { S: getCurrentTimestamp() }
+                    }
+                });
+
+                await dynamoClient.send(updateCommand);
+                console.log(`Deactivated strategy: ${strategy.id}`);
+            }
+        }
+    } catch (error) {
+        console.error('Error deactivating strategies:', error);
+        throw error;
+    }
+}
+
+// Strategy templates for frontend to choose from
+function getStrategyTemplates() {
+    return [
+        {
+            type: 'conservative',
+            name: 'Conservative Strategy',
+            description: 'Low-risk loop: stake KAIA via Lair, lend stKAIA on KiloLend, borrow stablecoin, and restake to boost yield safely.',
+            config: {
+                stakingProtocol: 'Lair Finance',
+                lendingProtocol: 'KiloLend',
+                baseAsset: 'KAIA',
+                stakedAsset: 'stKAIA',
+                loopEnabled: true,
+                loopSteps: 2,
+                targetAPY: 8,
+            },
+            riskLevel: 'low',
+            estimatedAPY: '8-12%'
+        },
+        {
+            type: 'balanced',
+            name: 'Balanced Strategy',
+            description: 'Moderate-risk yield: combine staking and lending with DEX liquidity farming on KLEX to enhance returns.',
+            config: {
+                stakingProtocol: 'Lair Finance',
+                lendingProtocol: 'KiloLend',
+                dexProtocol: 'KLEX',
+                loopEnabled: true,
+                loopSteps: 3,
+                lpFarmingEnabled: true,
+                rebalanceThreshold: 5,
+                targetAPY: 18,
+            },
+            riskLevel: 'medium',
+            estimatedAPY: '15-25%'
+        },
+        {
+            type: 'aggressive',
+            name: 'Aggressive Strategy',
+            description: 'High-risk loop with leverage farming on KiloLend, AI-driven rebalancing, and auto-compounding to maximize KAIA yield.',
+            config: {
+                leverageEnabled: true,
+                leverageMultiplier: 3,
+                autoCompoundEnabled: true,
+                aiTradingEnabled: true,
+                modelType: 'momentum',
+                targetAPY: 35,
+                minProfitThreshold: 0.5,
+            },
+            riskLevel: 'high',
+            estimatedAPY: '30-50%'
+        }
+    ];
+}
+
+function getDefaultStrategyConfig(type) {
+    const templates = getStrategyTemplates();
+    const template = templates.find(t => t.type === type);
+    return template ? template.config : {};
+}
