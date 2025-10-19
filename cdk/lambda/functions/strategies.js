@@ -41,7 +41,7 @@ exports.handler = async (event) => {
 
                 const result = await dynamoClient.send(command);
                 const items = result.Items ? result.Items.map(item => unmarshall(item)) : [];
-                
+
                 // Separate active and inactive
                 const active = items.find(item => item.isActive === true);
                 const inactive = items.filter(item => item.isActive !== true);
@@ -65,7 +65,7 @@ exports.handler = async (event) => {
         // GET /strategies/{id} - Get specific strategy
         if (httpMethod === 'GET' && pathParameters?.id) {
             const strategyId = pathParameters.id;
-            
+
             try {
                 const command = new GetItemCommand({
                     TableName: STRATEGIES_TABLE,
@@ -73,7 +73,7 @@ exports.handler = async (event) => {
                 });
 
                 const result = await dynamoClient.send(command);
-                
+
                 if (!result.Item) {
                     return response(404, {
                         success: false,
@@ -108,12 +108,12 @@ exports.handler = async (event) => {
             try {
                 const body = JSON.parse(event.body || '{}');
                 const timestamp = getCurrentTimestamp();
-                
+
                 // If this strategy is being set as active, deactivate others first
                 if (body.isActive === true) {
                     await deactivateAllStrategies();
                 }
-                
+
                 const strategy = {
                     id: generateId(),
                     name: body.name,
@@ -157,16 +157,16 @@ exports.handler = async (event) => {
             }
 
             const strategyId = pathParameters.id;
-            
+
             try {
                 const body = JSON.parse(event.body || '{}');
                 const timestamp = getCurrentTimestamp();
-                
+
                 // If setting this strategy as active, deactivate others first
                 if (body.isActive === true) {
                     await deactivateAllStrategies();
                 }
-                
+
                 const updateExpressions = [];
                 const expressionAttributeNames = {};
                 const expressionAttributeValues = {};
@@ -249,7 +249,7 @@ exports.handler = async (event) => {
             }
 
             const strategyId = pathParameters.id;
-            
+
             try {
                 // Check if it's the active strategy
                 const getCommand = new GetItemCommand({
@@ -258,7 +258,7 @@ exports.handler = async (event) => {
                 });
 
                 const getResult = await dynamoClient.send(getCommand);
-                
+
                 if (getResult.Item) {
                     const strategy = unmarshall(getResult.Item);
                     if (strategy.isActive === true) {
@@ -315,11 +315,11 @@ async function deactivateAllStrategies() {
         });
 
         const scanResult = await dynamoClient.send(scanCommand);
-        
+
         if (scanResult.Items && scanResult.Items.length > 0) {
             for (const item of scanResult.Items) {
                 const strategy = unmarshall(item);
-                
+
                 const updateCommand = new UpdateItemCommand({
                     TableName: STRATEGIES_TABLE,
                     Key: marshall({ id: strategy.id }),
@@ -358,6 +358,23 @@ function getStrategyTemplates() {
             },
             riskLevel: 'low',
             estimatedAPY: '8-12%'
+        },
+        {
+            type: 'diversified',
+            name: 'Diversified Yield Strategy',
+            description: 'Multi-protocol approach: spread investments across Lair staking, KiloLend lending, and stablecoin farming for balanced returns.',
+            config: {
+                allocationStrategy: 'diversified',
+                stakingAllocation: 40,
+                lendingAllocation: 35,
+                stablecoinAllocation: 25,
+                protocols: ['Lair Finance', 'KiloLend', 'KLEX'],
+                rebalanceFrequency: 'weekly',
+                diversificationEnabled: true,
+                targetAPY: 12,
+            },
+            riskLevel: 'medium',
+            estimatedAPY: '10-18%'
         },
         {
             type: 'balanced',
