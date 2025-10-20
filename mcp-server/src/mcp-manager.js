@@ -35,12 +35,13 @@ class MCPManager {
         timeout: 10000
       });
 
-      const configs = response.data;
-      logger.info(`✅ Fetched ${configs.length} MCP server configs from AWS`);
+      const configs = response.data.data || response.data; // Handle wrapped response
+      const configCount = Array.isArray(configs) ? configs.length : (configs ? 1 : 0);
+      logger.info(`✅ Fetched ${configCount} MCP server configs from AWS`);
       
       this.lastSyncTime = new Date().toISOString();
-      return configs;
-      
+
+      return Array.isArray(configs) ? configs : [];
     } catch (error) {
       logger.error('❌ Failed to fetch MCP configs from AWS:', error.message);
       if (error.response) {

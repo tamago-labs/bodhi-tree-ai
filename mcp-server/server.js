@@ -13,6 +13,14 @@ const { logger } = require('./src/utils/logger');
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Trust proxy for rate limiting when behind reverse proxy
+// Only trust specific proxies in production, not in development
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
+} else {
+  app.set('trust proxy', false);
+}
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
