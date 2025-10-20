@@ -24,3 +24,56 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* MCP Thinking Styles */
+.mcp-thinking {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.mcp-thinking[open] {
+  background: #ffffff;
+}
+
+.mcp-thinking-summary {
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.mcp-thinking-summary:hover {
+  background: #e5e7eb;
+}
+
+.mcp-thinking-content {
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #4b5563;
+  background: #ffffff;
+}
+
+/* Custom scrollbar for MCP thinking content */
+.mcp-thinking-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mcp-thinking-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.mcp-thinking-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+.mcp-thinking-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

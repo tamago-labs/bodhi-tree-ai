@@ -11,7 +11,8 @@ import {
   X,
   ChevronDown,
   Wallet,
-  History
+  History,
+  MessageCircle
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +33,11 @@ const navigation = [
       { name: 'Configuration', href: '/agent/config' },
        { name: 'MCP', href: '/agent/mcp' },
     ],
+  },
+  {
+    name: 'Playground',
+    href: '/playground',
+    icon: MessageCircle,
   },
   {
     name: 'Vault',
