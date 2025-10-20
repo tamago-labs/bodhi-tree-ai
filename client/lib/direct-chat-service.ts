@@ -3,6 +3,7 @@ import {
   InvokeModelWithResponseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { AIAgent, ChatMessage, ToolCall, StreamChunk } from '@/types';
+import { PlaygroundAPI } from './playground-api';
 
 interface ToolUse {
   id: string;
@@ -41,7 +42,7 @@ export class DirectAIChatService {
     mcpServers: string[] = []
   ): AsyncGenerator<StreamChunk, { stopReason?: string }, unknown> {
     
-    let messages = this.buildConversationMessages(agent, chatHistory, currentMessage, mcpServers);
+    let messages = await this.buildConversationMessages(agent, chatHistory, currentMessage, mcpServers);
     let finalStopReason: string | undefined;
 
     try {
@@ -221,41 +222,68 @@ export class DirectAIChatService {
   }
 
   private async executeMCPTool(toolName: string, input: any, mcpServers: string[]): Promise<any> {
-    // This is where you would integrate with your MCP server
-    // For now, we'll simulate a basic MCP tool execution
-    
     if (mcpServers.length === 0) {
       throw new Error('No MCP servers available for tool execution');
     }
 
-    // Simulate MCP tool execution
     console.log(`Executing MCP tool: ${toolName} with input:`, input);
+    console.log(`Available enabled servers:`, mcpServers);
     
-    // In a real implementation, you would:
-    // 1. Connect to your MCP server
-    // 2. Execute the tool with the given input
-    // 3. Return the result
-    
-    // For now, return a mock response
-    return {
-      tool: toolName,
-      input: input,
-      result: `Mock result for ${toolName}`,
-      timestamp: new Date().toISOString(),
-      servers: mcpServers
-    };
+    try {
+      // Extract server name from tool name (format: "serverName__toolName")
+      const serverName = PlaygroundAPI.extractServerName(toolName);
+      const actualToolName = toolName.includes('__') ? toolName.split('__')[1] : toolName;
+      
+      console.log(`Extracted server name: ${serverName}, tool name: ${actualToolName}`);
+      
+      // Check if the server is in the enabled list (case-insensitive comparison)
+      const enabledServer = mcpServers.find(enabled => 
+        enabled.toLowerCase() === serverName.toLowerCase() ||
+        enabled.toLowerCase().replace(/[^a-z0-9]/g, '') === serverName.toLowerCase().replace(/[^a-z0-9]/g, '')
+      );
+      
+      if (!enabledServer) {
+        console.error(`Server ${serverName} is not enabled. Available servers: ${mcpServers.join(', ')}`);
+        throw new Error(`Server ${serverName} is not enabled. Available servers: ${mcpServers.join(', ')}`);
+      }
+      
+      console.log(`Server ${serverName} is enabled, proceeding with tool call`);
+      
+      // Call the MCP tool through PlaygroundAPI
+      const result = await PlaygroundAPI.callMCPTool(serverName, actualToolName, input);
+      
+      return {
+        tool: toolName,
+        serverName: serverName,
+        actualToolName: actualToolName,
+        input: input,
+        result: result,
+        timestamp: new Date().toISOString(),
+        success: true
+      };
+    } catch (error) {
+      console.error(`MCP tool execution failed for ${toolName}:`, error);
+      
+      return {
+        tool: toolName,
+        input: input,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+        success: false
+      };
+    }
   }
 
-  private buildConversationMessages(
+  private async buildConversationMessages(
     agent: AIAgent, 
     chatHistory: ChatMessage[], 
     currentMessage: string,
     mcpServers: string[]
-  ): any[] {
+  ): Promise<any[]> {
     const messages: any[] = [];
 
     // Add system message with agent's system prompt
-    const systemPrompt = this.buildSystemPrompt(agent, mcpServers);
+    const systemPrompt = await this.buildSystemPrompt(agent, mcpServers);
     
     // Add system prompt as first message
     messages.push({
@@ -284,20 +312,54 @@ export class DirectAIChatService {
     return messages;
   }
 
-  private buildSystemPrompt(agent: AIAgent, mcpServers: string[]): string {
+  private async buildSystemPrompt(agent: AIAgent, mcpServers: string[]): Promise<string> {
     let systemPrompt = agent.systemPrompt || `You are a helpful AI assistant with access to Web3 data through MCP (Model Context Protocol) servers.`;
 
     // Add MCP context
     if (mcpServers.length > 0) {
       systemPrompt += `\n\nAvailable MCP servers: ${mcpServers.join(', ')}`;
-      systemPrompt += `\n\nWhen users ask about blockchain data, DeFi protocols, token prices, or other Web3-related information, use the available MCP tools to gather real-time data.
-
-Guidelines:
+      
+      try {
+        // Fetch available tools from MCP servers
+        const tools = await PlaygroundAPI.getMCPServerTools();
+        
+        if (tools && Object.keys(tools).length > 0) {
+          systemPrompt += `\n\nAvailable MCP tools:\n`;
+          
+          for (const [serverName, serverTools] of Object.entries(tools as any)) {
+            if (mcpServers.includes(serverName) && Array.isArray(serverTools)) {
+              systemPrompt += `\n${serverName}:\n`;
+              serverTools.forEach((tool: any) => {
+                systemPrompt += `  - ${tool.name}: ${tool.description || 'No description'}\n`;
+              });
+            }
+          }
+          
+          systemPrompt += `\nTool naming convention: Use "serverName__toolName" format when calling tools.`;
+        } else {
+          systemPrompt += `\n\nYou have access to various Web3 tools through these MCP servers, but the specific tools couldn't be loaded.`;
+        }
+      } catch (error) {
+        console.warn('Could not fetch MCP tools for system prompt:', error);
+        systemPrompt += `\n\nYou have access to various Web3 tools through these MCP servers.`;
+      }
+      
+      systemPrompt += `\n\nGuidelines for using MCP tools:
+- Tool names are in format "serverName__toolName" 
 - Always use MCP tools when available for Web3 data queries
 - Explain complex concepts clearly
 - Provide actionable insights when possible
 - If tools fail, explain the issue and suggest alternatives
-- Be helpful, accurate, and comprehensive`;
+- Be helpful, accurate, and comprehensive
+
+Common tool patterns you might have available:
+- Token price queries (e.g., "get_token_price")
+- Balance checks (e.g., "get_balance") 
+- Transaction lookups (e.g., "get_transaction")
+- DeFi protocol data (e.g., "get_pool_info", "get_tvl")
+- Network statistics (e.g., "get_network_stats")`;
+    } else {
+      systemPrompt += `\n\nNote: No MCP servers are currently enabled. You can still provide general Web3 information and explanations, but won't have access to real-time data.`;
     }
 
     return systemPrompt;

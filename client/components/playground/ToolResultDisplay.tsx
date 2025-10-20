@@ -27,6 +27,107 @@ export function ToolResultDisplay({ tool }: ToolResultDisplayProps) {
     return PlaygroundAPI.formatToolOutput(content);
   };
 
+  const formatSmartContent = (content: any): { type: 'json' | 'defi' | 'table' | 'text'; content: string; data?: any } => {
+    try {
+      const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+      
+      // Check if it's DeFi pool data
+      if (parsed.data?.pools && Array.isArray(parsed.data.pools)) {
+        return {
+          type: 'defi',
+          content: formatDeFiPools(parsed.data.pools),
+          data: parsed.data.pools
+        };
+      }
+      
+      // Check if it's table-like data
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
+        return {
+          type: 'table',
+          content: formatTable(parsed),
+          data: parsed
+        };
+      }
+      
+      // Check if it's a single object that could be a table
+      if (typeof parsed === 'object' && parsed !== null && !parsed.data) {
+        const keys = Object.keys(parsed);
+        if (keys.length > 0) {
+          return {
+            type: 'table',
+            content: formatTable([parsed]),
+            data: [parsed]
+          };
+        }
+      }
+      
+      return {
+        type: 'json',
+        content: JSON.stringify(parsed, null, 2),
+        data: parsed
+      };
+    } catch {
+      return {
+        type: 'text',
+        content: String(content),
+        data: null
+      };
+    }
+  };
+
+  const formatDeFiPools = (pools: any[]): string => {
+    const headers = ['Token', 'Supply APY', 'Borrow APY', 'Total Supply', 'Total Borrow', 'Utilization', 'Available'];
+    const rows = pools.map(pool => [
+      pool.token || 'N/A',
+      pool.supply_apy || 'N/A',
+      pool.borrow_apy || 'N/A',
+      pool.total_supply || 'N/A',
+      pool.total_borrow || 'N/A',
+      pool.utilization_rate || 'N/A',
+      pool.liquidity_available || 'N/A'
+    ]);
+    
+    return formatTableData(headers, rows);
+  };
+
+  const formatTable = (data: any[]): string => {
+    if (data.length === 0) return 'No data available';
+    
+    const allKeys = new Set<string>();
+    data.forEach(item => {
+      Object.keys(item).forEach(key => allKeys.add(key));
+    });
+    
+    const headers = Array.from(allKeys);
+    const rows = data.map(item => 
+      headers.map(header => String(item[header] || 'N/A'))
+    );
+    
+    return formatTableData(headers, rows);
+  };
+
+  const formatTableData = (headers: string[], rows: string[][]): string => {
+    // Calculate column widths
+    const colWidths = headers.map((header, i) => {
+      const maxRowWidth = Math.max(...rows.map(row => (row[i] || '').length));
+      return Math.max(header.length, maxRowWidth, 10);
+    });
+    
+    // Format header
+    const headerRow = headers.map((header, i) => 
+      header.padEnd(colWidths[i])
+    ).join(' | ');
+    
+    const separator = colWidths.map(width => '-'.repeat(width)).join('-|-');
+    
+    // Format data rows
+    const dataRows = rows.map(row => 
+      row.map((cell, i) => (cell || '').padEnd(colWidths[i])).join(' | ')
+    );
+    
+    return [headerRow, separator, ...dataRows].join('\n');
+  };
+
   const isJson = (content: string): boolean => {
     try {
       JSON.parse(content);
@@ -41,13 +142,15 @@ export function ToolResultDisplay({ tool }: ToolResultDisplayProps) {
       return <AlertCircle className="w-4 h-4 text-red-500" />;
     }
     
-    const content = tool.error || formatContent(tool.output);
-    if (isJson(content)) {
-      return <Code className="w-4 h-4 text-blue-500" />;
-    } else if (typeof tool.output === 'object' && tool.output !== null) {
-      return <Database className="w-4 h-4 text-green-500" />;
-    } else {
-      return <FileText className="w-4 h-4 text-gray-500" />;
+    switch (smartContent.type) {
+      case 'defi':
+        return <Database className="w-4 h-4 text-green-500" />;
+      case 'table':
+        return <Database className="w-4 h-4 text-blue-500" />;
+      case 'json':
+        return <Code className="w-4 h-4 text-blue-500" />;
+      default:
+        return <FileText className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -64,8 +167,8 @@ export function ToolResultDisplay({ tool }: ToolResultDisplayProps) {
     }
   };
 
-  const content = tool.error || formatContent(tool.output);
-  const isCodeBlock = isJson(content) || typeof tool.output === 'object';
+  const smartContent = formatSmartContent(tool.error || tool.output);
+  const isCodeBlock = smartContent.type !== 'text';
 
   return (
     <div className="p-4 space-y-3">
@@ -126,12 +229,20 @@ export function ToolResultDisplay({ tool }: ToolResultDisplayProps) {
 
         {/* Content Display */}
         <div className={`rounded border overflow-hidden ${
-          tool.error ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+          tool.error ? 'bg-red-50 border-red-200' : 
+          smartContent.type === 'defi' ? 'bg-green-50 border-green-200' :
+          smartContent.type === 'table' ? 'bg-blue-50 border-blue-200' :
+          'bg-gray-50 border-gray-200'
         }`}>
           {isCodeBlock ? (
             <pre className="text-sm p-3 overflow-x-auto whitespace-pre-wrap">
-              <code className={tool.error ? 'text-red-800' : 'text-gray-800'}>
-                {content}
+              <code className={
+                tool.error ? 'text-red-800' : 
+                smartContent.type === 'defi' ? 'text-green-800' :
+                smartContent.type === 'table' ? 'text-blue-800' :
+                'text-gray-800'
+              }>
+                {smartContent.content}
               </code>
             </pre>
           ) : (
@@ -139,7 +250,7 @@ export function ToolResultDisplay({ tool }: ToolResultDisplayProps) {
               <p className={`text-sm whitespace-pre-wrap ${
                 tool.error ? 'text-red-800' : 'text-gray-800'
               }`}>
-                {content}
+                {smartContent.content}
               </p>
             </div>
           )}

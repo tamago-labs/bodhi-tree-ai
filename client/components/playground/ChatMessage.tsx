@@ -38,30 +38,198 @@ export function ChatMessage({ message, isTyping }: ChatMessageProps) {
     return ConversationStorage.formatTimestamp(new Date(timestamp));
   };
 
-  // Custom renderer to handle special MCP tags
-  const preprocessContent = (content: string) => {
-    // Replace <list_tools> tags with special markdown code block
-    let processed = content.replace(
-      /<list_tools><\/list_tools>/g,
-      '🔧 **MCP Tools Available**\n\n```toollistbadge\n```'
-    );
-
-    // Replace <mcp_thinking> tags with collapsible sections
-    processed = processed.replace(
-      /<mcp_thinking>([\s\S]*?)<\/mcp_thinking>/g,
-      (match, thinking) => {
-        return `
+  // Dynamic tag parser 
+  const parseTag = (tagName: string, content?: string): string => {
+    // Special handling for JSON content (function_result, data, etc.)
+    if (content && (tagName.includes('result') || tagName.includes('data'))) {
+      try {
+        const jsonData = JSON.parse(content.trim());
+        return formatDynamicContent(jsonData);
+      } catch (error) {
+        // Not JSON, continue with normal processing
+      }
+    }
+    
+    // Special handling for thinking/collapsible content
+    if (tagName.includes('thinking') || tagName.includes('process')) {
+      return content ? `
 <details className="mcp-thinking">
-<summary className="mcp-thinking-summary">🧠 AI Thinking Process</summary>
+<summary className="mcp-thinking-summary">🧠 ${tagName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</summary>
 
-${thinking}
+${content}
 
 </details>
-        `.trim();
+      `.trim() : '';
+    }
+    
+    // Special handling for tools/actions
+    if (tagName.includes('tool') || tagName.includes('invoke') || tagName.includes('call')) {
+      return content ? `🔧 **${tagName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:** ${content}` : `🔧 **${tagName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}**`;
+    }
+    
+    // Special handling for lists
+    if (tagName.includes('list')) {
+      return `📋 **${tagName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}**`;
+    }
+    
+    // Default handling for any other tag
+    const formattedName = tagName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    if (content) {
+      // Try to detect if content is structured data
+      if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+        try {
+          const jsonData = JSON.parse(content.trim());
+          return `\n**${formattedName}:**\n${formatDynamicContent(jsonData)}\n`;
+        } catch (error) {
+          // Not JSON, treat as regular content
+        }
       }
-    );
+      
+      return `\n**${formattedName}:**\n\`\`\`\n${content.trim()}\n\`\`\`\n`;
+    } else {
+      return `\n**${formattedName}**\n`;
+    }
+  };
 
+  // Universal tag processor - handles any tag dynamically
+  const preprocessContent = (content: string) => {
+    let processed = content;
+    
+    // Match all tags (both self-closing and with content)
+    const tagRegex = /<(\w+)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>|<(\w+)(?:\s+[^>]*)?\/>/g;
+    
+    processed = processed.replace(tagRegex, (match, tagNameWithContent, tagContent, selfClosingTag) => {
+      const tagName = tagNameWithContent || selfClosingTag;
+      const tagContentToUse = tagNameWithContent ? tagContent : undefined;
+      
+      return parseTag(tagName, tagContentToUse);
+    });
+    
     return processed;
+  };
+
+  const formatDynamicContent = (data: any): string => {
+    // For function_result tags, default to JSON formatting unless it's specific table-friendly data
+    if (typeof data === 'object' && data !== null) {
+      const keys = Object.keys(data);
+      
+      // Only format as table for very specific, clean data structures
+      if (keys.includes('pools') && Array.isArray(data.pools)) {
+        return `🏊 **Pool Data:**\n${formatDynamicTable(data.pools)}`;
+      }
+      
+      // Check if it's a simple array of primitive values
+      if (Array.isArray(data)) {
+        if (data.length === 0) return '📊 *No data available*';
+        
+        // Only format as table if it's a clean array of simple objects with consistent keys
+        if (data.every(item => typeof item === 'object' && item !== null)) {
+          const allKeys = new Set<string>();
+          data.forEach(item => Object.keys(item).forEach(key => allKeys.add(key)));
+          
+          // Only auto-format as table if we have a reasonable number of columns and simple data
+          if (allKeys.size <= 8 && allKeys.size > 0) {
+            const keysArray = Array.from(allKeys);
+            const hasSimpleValues = data.every(item => 
+              keysArray.every(key => {
+                const value = item[key];
+                return typeof value !== 'object' || value === null;
+              })
+            );
+            
+            if (hasSimpleValues) {
+              return formatDynamicTable(data);
+            }
+          }
+        }
+        
+        // For complex arrays, show as JSON
+        return `📋 **Results:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+      }
+      
+      // For all other objects, show as formatted JSON
+      return `📄 **Result:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+    }
+    
+    // Primitive value
+    return `📄 **Result:**\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+  };
+
+  const formatDynamicTable = (dataArray: any[]): string => {
+    if (dataArray.length === 0) return '📊 *No data available*';
+    
+    // Collect all possible keys from all objects
+    const allKeys = new Set<string>();
+    dataArray.forEach(item => {
+      if (typeof item === 'object' && item !== null) {
+        Object.keys(item).forEach(key => allKeys.add(key));
+      }
+    });
+    
+    const headers = Array.from(allKeys).map(key => 
+      key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    );
+    
+    const rows = dataArray.map(item => {
+      if (typeof item !== 'object' || item === null) {
+        return headers.map(() => 'N/A');
+      }
+      
+      return headers.map(header => {
+        const originalKey = header.toLowerCase().replace(/ /g, '_');
+        const value = item[originalKey] || item[header] || 'N/A';
+        
+        // Format the value
+        if (typeof value === 'object' && value !== null) {
+          return JSON.stringify(value);
+        }
+        return String(value);
+      });
+    });
+    
+    return createMarkdownTable(headers, rows);
+  };
+
+  const formatObjectAsTable = (obj: any): string => {
+    const headers = ['Property', 'Value'];
+    const rows = Object.entries(obj).map(([key, value]) => [
+      key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      typeof value === 'object' && value !== null 
+        ? JSON.stringify(value, null, 2) 
+        : String(value)
+    ]);
+    
+    return createMarkdownTable(headers, rows);
+  };
+
+  const createMarkdownTable = (headers: string[], rows: string[][]): string => {
+    // Calculate column widths
+    const colWidths = headers.map((header, i) => {
+      const maxRowWidth = Math.max(...rows.map(row => (row[i] || '').length));
+      return Math.max(header.length, maxRowWidth, 8);
+    });
+    
+    // Format header
+    const headerRow = headers.map((header, i) => 
+      header.padEnd(colWidths[i])
+    ).join(' | ');
+    
+    const separator = colWidths.map(width => '-'.repeat(width)).join('-|-');
+    
+    // Format data rows
+    const dataRows = rows.map(row => 
+      row.map((cell, i) => {
+        const cellStr = String(cell || 'N/A');
+        // Truncate very long cells
+        if (cellStr.length > 50) {
+          return cellStr.substring(0, 47) + '...';
+        }
+        return cellStr.padEnd(colWidths[i]);
+      }).join(' | ')
+    );
+    
+    return `\n${headerRow}\n${separator}\n${dataRows.join('\n')}\n`;
   };
 
   const isUser = message.type === 'user';
