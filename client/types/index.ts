@@ -102,3 +102,36 @@ export interface MCPServer {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface AIAgent {
+  id: string;
+  name: string;
+  systemPrompt: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  sender: 'user' | 'agent';
+  timestamp: number;
+  toolCalls?: ToolCall[];
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: any;
+  status: 'pending' | 'success' | 'error';
+  startTime: number;
+  result?: any;
+  error?: string;
+}
+
+export interface StreamChunk {
+  type: 'text' | 'tool_start' | 'tool_progress' | 'tool_complete' | 'tool_error';
+  content: string;
+  toolCall?: ToolCall;
+}
