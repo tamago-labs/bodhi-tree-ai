@@ -1,0 +1,50 @@
+# AWS App Runner Configuration for Test Service
+version: 1.0
+
+# Runtime configuration - using Node.js 22
+runtime: nodejs22
+build:
+  commands:
+    build:
+      - npm install --production
+  env:
+    - name: NODE_ENV
+      value: production
+
+# Runtime configuration
+run:
+  runtime-version: 22.14.0
+  command: npm start
+  network:
+    port: 3000
+    env: PORT
+  env:
+    - name: NODE_ENV
+      value: production
+
+# Health check configuration
+health-check:
+  protocol: HTTP
+  path: /health
+  interval: 30
+  timeout: 5
+  healthy-threshold: 1
+  unhealthy-threshold: 3
+
+# Auto-scaling configuration
+auto-scaling:
+  min-size: 1
+  max-size: 2
+  cpu-utilization: 70
+
+# Network configuration
+network:
+  ingress:
+    - from: 0.0.0.0/0
+      to-port: 3000
+      protocol: TCP
+
+# Instance configuration
+instance:
+  cpu: 1 vCPU
+  memory: 1 GB
