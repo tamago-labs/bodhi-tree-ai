@@ -68,3 +68,6 @@ temp/
 # AWS
 .aws/
 credentials
+
+# Local Netlify folder
+.netlify
