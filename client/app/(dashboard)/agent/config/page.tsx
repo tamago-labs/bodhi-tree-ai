@@ -306,26 +306,41 @@ export default function AgentConfigPage() {
 
       {/* Inactive Strategies */}
       {inactiveStrategies.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">My Strategies</h2>
+        <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 ${activeStrategy ? 'opacity-50 pointer-events-none' : ''}`}>
+          <h2 className={`text-lg font-semibold mb-4 ${activeStrategy ? 'text-gray-400' : 'text-gray-900'}`}>
+            My Strategies
+            
+          </h2>
           <div className="space-y-4">
             {inactiveStrategies.map((strategy) => (
               <div
                 key={strategy.id}
-                className="border border-gray-200 rounded-lg p-4 hover:border-orange-300 transition-colors"
+                className={`border rounded-lg p-4 transition-colors ${
+                  activeStrategy 
+                    ? 'border-gray-200 cursor-not-allowed' 
+                    : 'border-gray-200 hover:border-orange-300 cursor-pointer'
+                }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Circle className="w-4 h-4 text-gray-400" />
-                      <h3 className="font-semibold text-gray-900">{strategy.name}</h3>
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                      <Circle className={`w-4 h-4 ${activeStrategy ? 'text-gray-300' : 'text-gray-400'}`} />
+                      <h3 className={`font-semibold ${activeStrategy ? 'text-gray-400' : 'text-gray-900'}`}>
+                        {strategy.name}
+                      </h3>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        activeStrategy 
+                          ? 'bg-gray-50 text-gray-400' 
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
                         {strategy.type.toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">{strategy.description}</p>
+                    <p className={`text-sm mb-3 ${activeStrategy ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {strategy.description}
+                    </p>
                     
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className={`flex items-center gap-2 text-xs ${activeStrategy ? 'text-gray-400' : 'text-gray-500'}`}>
                       <span>Created: {new Date(strategy.createdAt).toLocaleDateString()}</span>
                       <span>•</span>
                       <span>Updated: {new Date(strategy.updatedAt).toLocaleDateString()}</span>
@@ -334,14 +349,24 @@ export default function AgentConfigPage() {
 
                   <div className="flex items-center gap-2 ml-4">
                     <button
-                      onClick={() => handleActivateStrategy(strategy)}
-                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                      onClick={() => !activeStrategy && handleActivateStrategy(strategy)}
+                      disabled={!!activeStrategy}
+                      className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                        activeStrategy
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-orange-600 text-white hover:bg-orange-700'
+                      }`}
                     >
                       Activate
                     </button>
                     <button
-                      onClick={() => handleDeleteStrategy(strategy)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      onClick={() => !activeStrategy && handleDeleteStrategy(strategy)}
+                      disabled={!!activeStrategy}
+                      className={`p-2 rounded-lg transition-colors ${
+                        activeStrategy
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-red-600 hover:bg-red-50'
+                      }`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
