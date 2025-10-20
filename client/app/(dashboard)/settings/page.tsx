@@ -85,10 +85,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
-    { id: 'api', name: 'API', icon: Key },
-    { id: 'data', name: 'Data Management', icon: Database },
   ];
 
   return (
@@ -249,62 +246,6 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* Notification Settings */}
-              {activeTab === 'notifications' && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Bell className="w-6 h-6 text-orange-600" />
-                    <h2 className="text-xl font-semibold text-gray-900">Notification Preferences</h2>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Mail className="w-5 h-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium text-gray-900">Email Notifications</p>
-                          <p className="text-sm text-gray-600">Receive updates via email</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setEmailNotifications(!emailNotifications)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          emailNotifications ? 'bg-orange-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            emailNotifications ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Smartphone className="w-5 h-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium text-gray-900">Push Notifications</p>
-                          <p className="text-sm text-gray-600">Receive push notifications on mobile</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setPushNotifications(!pushNotifications)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          pushNotifications ? 'bg-orange-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            pushNotifications ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Security Settings */}
               {activeTab === 'security' && (
                 <div className="space-y-6">
@@ -361,133 +302,14 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* API Settings */}
-              {activeTab === 'api' && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Key className="w-6 h-6 text-orange-600" />
-                    <h2 className="text-xl font-semibold text-gray-900">API Configuration</h2>
-                  </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        API Endpoint
-                      </label>
-                      <input
-                        type="url"
-                        value={apiSettings.endpoint}
-                        onChange={(e) => updateApiSettings('endpoint', e.target.value)}
-                        placeholder="https://api.example.com"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        API Key
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="password"
-                          value={apiSettings.apiKey}
-                          onChange={(e) => updateApiSettings('apiKey', e.target.value)}
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        />
-                        <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                          Regenerate
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Webhook URL
-                      </label>
-                      <input
-                        type="url"
-                        value={apiSettings.webhookUrl}
-                        onChange={(e) => updateApiSettings('webhookUrl', e.target.value)}
-                        placeholder="https://webhook.example.com"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Rate Limit (requests/hour)
-                      </label>
-                      <input
-                        type="number"
-                        value={apiSettings.rateLimit}
-                        onChange={(e) => updateApiSettings('rateLimit', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Data Management */}
-              {activeTab === 'data' && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Database className="w-6 h-6 text-orange-600" />
-                    <h2 className="text-xl font-semibold text-gray-900">Data Management</h2>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Export Data</h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Download all your data including configurations, transaction history, and settings.
-                      </p>
-                      <button
-                        onClick={handleExportData}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        Export All Data
-                      </button>
-                    </div>
-
-                    <div className="border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Import Data</h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Restore your data from a previously exported file.
-                      </p>
-                      <button
-                        onClick={handleImportData}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Import Data
-                      </button>
-                    </div>
-
-                    <div className="border border-red-200 rounded-lg p-6">
-                      <h3 className="text-lg font-medium text-red-900 mb-4">Danger Zone</h3>
-                      <p className="text-sm text-red-700 mb-4">
-                        Once you delete your account, there is no going back. Please be certain.
-                      </p>
-                      <button
-                        onClick={handleDeleteAccount}
-                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete Account
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Status Indicator */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      {/* <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-3">
           <CheckCircle className="w-5 h-5 text-green-600" />
           <div>
@@ -497,7 +319,7 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

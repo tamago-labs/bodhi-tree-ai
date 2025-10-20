@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (username: string, password: string, apiEndpoint?: string): Promise<boolean> => {
     // Mock authentication
     if (username === 'admin' && password === 'bodhi2025') {
-      const userData: User = { username, email: 'admin@bodhitree.ai', apiEndpoint };
+      const userData: User = { username, email: 'admin@bodhitree.pro', apiEndpoint };
       setUser(userData);
       localStorage.setItem('bodhi-user', JSON.stringify(userData));
       return true;

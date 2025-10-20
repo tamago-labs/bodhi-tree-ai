@@ -12,12 +12,12 @@ export default function AgentLayout({
   const pathname = usePathname();
 
   const tabs = [
-    {
-      name: 'Overview',
-      href: '/agent',
-      icon: Activity,
-      current: pathname === '/agent',
-    },
+    // {
+    //   name: 'Overview',
+    //   href: '/agent',
+    //   icon: Activity,
+    //   current: pathname === '/agent',
+    // },
     {
       name: 'Configuration',
       href: '/agent/config',

@@ -34,7 +34,7 @@ export default function DashboardLayout({
   }
 
   // Check if we're on the playground page
-  const isPlaygroundPage = pathname === '/playground';
+  const isPlaygroundPage = (pathname === '/playground' || pathname === "/");
 
   return (
     <AgentProvider>

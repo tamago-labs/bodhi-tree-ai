@@ -9,9 +9,7 @@ import {
   LogOut, 
   Menu, 
   X,
-  ChevronDown,
-  Wallet,
-  History,
+  Server,
   MessageCircle
 } from 'lucide-react';
 import { useState } from 'react';
@@ -25,29 +23,14 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    name: 'Agent',
-    href: '/agent',
-    icon: Bot,
-    children: [
-      { name: 'Overview', href: '/agent' },
-      { name: 'Configuration', href: '/agent/config' },
-       { name: 'MCP', href: '/agent/mcp' },
-    ],
-  },
-  {
     name: 'Playground',
     href: '/playground',
     icon: MessageCircle,
   },
   {
-    name: 'Vault',
-    href: '/vault',
-    icon: Wallet,
-  },
-  {
-    name: 'Transactions',
-    href: '/transactions',
-    icon: History,
+    name: 'MCP Servers',
+    href: '/agent/mcp',
+    icon: Server,
   },
   {
     name: 'Settings',
@@ -113,30 +96,8 @@ export function Sidebar() {
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
                     <span className="flex-1">{item.name}</span>
-                    {item.children && <ChevronDown className="w-4 h-4" />}
-                  </Link>
+                    </Link>
                   
-                  {/* Submenu */}
-                  {item.children && active && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {item.children.map((child) => {
-                        const childActive = pathname === child.href;
-                        return (
-                          <Link
-                            key={child.name}
-                            href={child.href}
-                            className={clsx(
-                              'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm',
-                              childActive ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
-                            )}
-                          >
-                            <span className="w-2 h-2 bg-current rounded-full"></span>
-                            {child.name}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
             })}

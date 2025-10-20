@@ -229,9 +229,9 @@ export function MCPServerSelector({ conversation, onSettingsChange }: MCPServerS
                           }`} />
                           {server.status}
                         </div>
-                        <div>
+                        {/* <div>
                           {server.tools} tools
-                        </div>
+                        </div> */}
                         {server.lastSeen && (
                           <div>
                             Last seen: {new Date(server.lastSeen).toLocaleTimeString()}
@@ -309,14 +309,7 @@ export function MCPServerSelector({ conversation, onSettingsChange }: MCPServerS
           </div>
         )}
       </div>
-
-      {/* Info */}
-      <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-        <p>
-          <strong>MCP Servers</strong> provide access to Web3 data and blockchain functionality. 
-          Enable servers to allow the AI to use their tools when responding to your messages.
-        </p>
-      </div>
+ 
     </div>
   );
 }
