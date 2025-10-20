@@ -130,9 +130,8 @@ export class BodhiTreeStack extends cdk.Stack {
       TASKS_TABLE: this.tasksTable.tableName,
       MCP_SERVERS_TABLE: this.mcpServersTable.tableName,
       STRATEGIES_TABLE: this.strategiesTable.tableName,
-      API_KEY: process.env.API_KEY || '123456',
-      NODE_ENV: 'production',
-      RAILWAY_MCP_URL: process.env.RAILWAY_MCP_URL || 'https://your-railway-app.railway.app',
+      API_KEY: '',
+      NODE_ENV: 'production'
     };
 
     // CloudWatch Log Group
